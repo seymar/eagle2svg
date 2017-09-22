@@ -1,0 +1,15 @@
+{
+  "name": "eagle2svg",
+  "version": "0.0.1",
+  "description": "Creates SVG from Eagle file",
+  "main": "index.js",
+  "scripts": {
+  },
+  "devDependencies": {
+    
+  },
+  "dependencies": {
+    "xml2js": "^0.4.19"
+  },
+  "author": "seymars"
+}
