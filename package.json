@@ -1,6 +1,6 @@
 {
   "name": "eagle2svg",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Creates SVG from Eagle file",
   "main": "index.js",
   "scripts": {},
