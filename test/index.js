@@ -1,11 +1,23 @@
-'use strict'
+const fs = require('fs')
+const Path = require('path')
+var eagle2svg = require('../index.js')
 
-var fs = require('fs')
+const path = './test/Controlboard/main.brd';
 
-var eagleToSVG = require('../index.js')
+// Get extension for future use
+const pathInfo = Path.parse(path)
 
-fs.readFile('./test/Controlboard/main.brd', (fserr, fsdata) => {
-	const xmlString = fsdata.toString();
+// Check file  type
+const fileBuffer = fs.readFileSync(path)
+const fileString = fileBuffer.toString()
 	
-	var result = eagleToSVG(xmlString);
-})
+// Check if Eagle .brd file
+if(pathInfo.ext == '.brd') {
+  eagle2svg(fileString, (bfr) => {
+    const thumbPath = './temp/test.svg';
+    
+	fs.writeFile(thumbPath, bfr, (a, b) => {
+		console.log('done')
+	})
+  })
+}

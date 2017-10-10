@@ -5,10 +5,10 @@ const fs = require('fs')
 
 const scale = (v) => 10 * v;
 
-function svgPackage(x, y, r, package) {
+function parsePackage(x, y, r, package) {
   let svg = [{
     _attr: {
-      transform: 'translate(' + scale(x) + ', ' + scale(y) + ');'//rotate(' + r + ', ' + scale(x) + ', ' + scale(y) + ')'
+      transform: 'translate(' + scale(x) + ', ' + scale(y) + ') rotate(' + r + ')'
     }
   }];
 
@@ -17,10 +17,10 @@ function svgPackage(x, y, r, package) {
     line: [
       {
         _attr: {
-          x1: scale(x)-5,
-          y1: scale(y),
-          x2: scale(x)+5,
-          y2: scale(y),
+          x1: -5,
+          y1: 0,
+          x2: 5,
+          y2: 0,
           style: 'stroke-width: 1;stroke:black'
         }
       }
@@ -30,15 +30,17 @@ function svgPackage(x, y, r, package) {
     line: [
       {
         _attr: {
-          x1: scale(x),
-          y1: scale(y)-5,
-          x2: scale(x),
-          y2: scale(y)+5,
+          x1: 0,
+          y1: -5,
+          x2: 0,
+          y2: 5,
           style: 'stroke-width: 1;stroke:black'
         }
       }
     ]
   });
+
+  let holes = []
 
   // Draw wires
   package.wire.forEach((wire) => {
@@ -46,10 +48,10 @@ function svgPackage(x, y, r, package) {
       line: [
         {
           _attr: {
-            x1: wire.$.x1,
-            y1: wire.$.y1,
-            x2: wire.$.x2,
-            y2: wire.$.y2,
+            x1: scale(wire.$.x1),
+            y1: scale(wire.$.y1),
+            x2: scale(wire.$.x2),
+            y2: scale(wire.$.y2),
             style: 'stroke-width: 1;stroke:rgb(0, 0, 0)'
           }
         }
@@ -88,6 +90,7 @@ function svgPackage(x, y, r, package) {
               }
             ]
           });
+          holes.push({x: pad.$.x, y: pad.$.y, d: pad.$.drill})
           break;
         case 'long':
           svg.push({
@@ -102,6 +105,7 @@ function svgPackage(x, y, r, package) {
               }
             ]
           });
+          holes.push({x: pad.$.x, y: pad.$.y, d: pad.$.drill})
           break;
         default:
           svg.push({
@@ -116,6 +120,7 @@ function svgPackage(x, y, r, package) {
               }
             ]
           });
+          holes.push({x: pad.$.x, y: pad.$.y, d: pad.$.diameter})
           break;
       }
 
@@ -128,26 +133,25 @@ function svgPackage(x, y, r, package) {
                 cx: scale(pad.$.x),
                 cy: scale(pad.$.y),
                 r: scale(pad.$.drill)/2,
-                style: 'fill:white;stroke-width:0'
+                style: 'fill:blue;stroke-width:0'
               }
             }
           ]
         });
+        holes.push({x: pad.$.x, y: pad.$.y, d: pad.$.drill})
       }
     })
   }
-
-  //console.log(package.smd)
 
   svg = {
     g: svg
   }
   
-  return svg;
+  return {svg, holes}
 }
 
 
-module.exports = function(xmlString) {
+module.exports = function(xmlString, callback) {
   parseXML(xmlString, function (err, result) {
     const drawing = result.eagle.drawing[0];
     const board = drawing.board[0];
@@ -157,7 +161,7 @@ module.exports = function(xmlString) {
         _attr: {
           xmlns: 'http://www.w3.org/2000/svg',
           width: 1000,
-          height: 1000
+          height: 1000 
         }
       }
     ];
@@ -165,9 +169,12 @@ module.exports = function(xmlString) {
     const libraries = board.libraries[0].library;
     const byName = (arr, name) => arr.filter((el) => el.$.name == name)[0]
 
+    let holes = []
+
+    let maxCoordinate = {x: 0, y: 0};
+
     // Loop through components
     board.elements[0].element.forEach((element) => {
-      //console.log(element.$);
       const libraryName = element.$.library;
       const packageName = element.$.package;
 
@@ -175,7 +182,14 @@ module.exports = function(xmlString) {
       const pkgs = lib.packages[0].package
       const pkg = byName(pkgs, packageName);
       
-      svg.push(svgPackage(parseFloat(element.$.x), parseFloat(element.$.y), parseFloat(element.$.rot), pkg))
+      let rotation = element.$.rot || 'R0';
+          rotation = parseFloat(rotation.substr(1))
+      
+      const parsedPackage = parsePackage(parseFloat(element.$.x), parseFloat(element.$.y), rotation, pkg)
+      
+      svg.push(parsedPackage.svg)
+      
+      holes = [...holes, ...parsedPackage.holes]
     })
 
     // Create SVG XML
@@ -184,30 +198,7 @@ module.exports = function(xmlString) {
         svg: svg
       }
     ], { declaration: true, indent: '\t' });
-    fs.writeFileSync('image.svg', xml)
+
+    callback(xml)
   });
 }
-
-var example4 = [
-  {
-    toys: [
-      {
-        _attr: {
-          decade: '80s',
-          locale: 'US'
-        }
-      },
-      { 
-        toy: 'Transformers'
-      },
-      {
-        toy: 'GI Joe'
-      },
-      {
-        toy: 'He-man'
-      }
-    ]
-  }
-];
-
-//console.log(XML(example4, true));
