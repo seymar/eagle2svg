@@ -12,6 +12,11 @@ function parsePackage(x, y, r, package) {
     }
   }];
 
+  let maxCoordinate = {
+    x: 5,
+    y: 5
+  }
+
   // Draw origin
   svg.push({
     line: [
@@ -26,6 +31,7 @@ function parsePackage(x, y, r, package) {
       }
     ]
   });
+
   svg.push({
     line: [
       {
@@ -57,6 +63,10 @@ function parsePackage(x, y, r, package) {
         }
       ]
     });
+    maxCoordinate.x = Math.max(maxCoordinate.x, scale(wire.$.x1))
+    maxCoordinate.y = Math.max(maxCoordinate.y, scale(wire.$.y1))
+    maxCoordinate.x = Math.max(maxCoordinate.x, scale(wire.$.x2))
+    maxCoordinate.y = Math.max(maxCoordinate.y, scale(wire.$.y2))
   })
 
   if(typeof package.polygon != 'undefined') {
@@ -72,6 +82,10 @@ function parsePackage(x, y, r, package) {
         ]
       });
     })
+    maxCoordinate.x = Math.max(maxCoordinate.x, scale(wire.$.x1))
+    maxCoordinate.y = Math.max(maxCoordinate.y, scale(wire.$.y1))
+    maxCoordinate.x = Math.max(maxCoordinate.x, scale(wire.$.x2))
+    maxCoordinate.y = Math.max(maxCoordinate.y, scale(wire.$.y2))
   }
 
   if(typeof package.pad != 'undefined') {
@@ -147,58 +161,88 @@ function parsePackage(x, y, r, package) {
     g: svg
   }
   
-  return {svg, holes}
+  return {svg, holes, maxCoordinate}
 }
 
 
-module.exports = function(xmlString, callback) {
-  parseXML(xmlString, function (err, result) {
-    const drawing = result.eagle.drawing[0];
-    const board = drawing.board[0];
+module.exports = function(xmlString, options) {
+  return new Promise((resolve, reject) => {
+    if(typeof options == 'undefined') reject('Not enough parameters')
+    if(typeof options.width == 'undefined') reject('No width specified')
+    if(typeof options.height == 'undefined') reject('No height specified')
 
-    let svg = [
-      {
-        _attr: {
-          xmlns: 'http://www.w3.org/2000/svg',
-          width: 1000,
-          height: 1000 
+    parseXML(xmlString, (err, result) => {
+      const drawing = result.eagle.drawing[0];
+      const board = drawing.board[0];
+
+      let svg = [
+        {
+          _attr: {
+            xmlns: 'http://www.w3.org/2000/svg',
+            preserveAspectRatio: 'none',
+            height: options.height,
+            width: options.width
+          }
         }
-      }
-    ];
+      ];
 
-    const libraries = board.libraries[0].library;
-    const byName = (arr, name) => arr.filter((el) => el.$.name == name)[0]
+      const libraries = board.libraries[0].library;
+      const byName = (arr, name) => arr.filter((el) => el.$.name == name)[0]
 
-    let holes = []
+      let holes = []
 
-    let maxCoordinate = {x: 0, y: 0};
+      let maxCoordinate = {x: 0, y: 0};
 
-    // Loop through components
-    board.elements[0].element.forEach((element) => {
-      const libraryName = element.$.library;
-      const packageName = element.$.package;
+      // Loop through components
+      board.elements[0].element.forEach((element) => {
+        const libraryName = element.$.library;
+        const packageName = element.$.package;
 
-      const lib = byName(libraries, libraryName)
-      const pkgs = lib.packages[0].package
-      const pkg = byName(pkgs, packageName);
-      
-      let rotation = element.$.rot || 'R0';
-          rotation = parseFloat(rotation.substr(1))
-      
-      const parsedPackage = parsePackage(parseFloat(element.$.x), parseFloat(element.$.y), rotation, pkg)
-      
-      svg.push(parsedPackage.svg)
-      
-      holes = [...holes, ...parsedPackage.holes]
-    })
+        const lib = byName(libraries, libraryName)
+        const pkgs = lib.packages[0].package
+        const pkg = byName(pkgs, packageName);
+        
+        let rotation = element.$.rot || 'R0';
+            rotation = parseFloat(rotation.substr(1))
+        
+        const parsedPackage = parsePackage(parseFloat(element.$.x), parseFloat(element.$.y), rotation, pkg)
+        
+        svg.push(parsedPackage.svg)
 
-    // Create SVG XML
-    const xml = XML([
-      {
-        svg: svg
-      }
-    ], { declaration: true, indent: '\t' });
+        /*svg.push({
+          line: [
+            {
+              _attr: {
+                x1: scale(element.$.x),
+                y1: scale(element.$.y),
+                x2: scale(element.$.x)+parsedPackage.maxCoordinate.x*rcos-parsedPackage.maxCoordinate.y*rsin,
+                y2: scale(element.$.y)+parsedPackage.maxCoordinate.y*rcos+parsedPackage.maxCoordinate.x*rsin,
+                style: 'stroke-width: 1;stroke:lime'
+              }
+            }
+          ]
+        });*/
 
-    callback(xml)
-  });
+        maxCoordinate.x = Math.max(maxCoordinate.x, scale(parseFloat(element.$.x))+parsedPackage.maxCoordinate.x)
+        maxCoordinate.y = Math.max(maxCoordinate.y, scale(parseFloat(element.$.y))+parsedPackage.maxCoordinate.y)
+        
+        holes = [...holes, ...parsedPackage.holes]
+      })
+
+      //svg[0]._attr.width = Math.ceil(maxCoordinate.x);
+      //svg[0]._attr.height = Math.ceil(maxCoordinate.y);
+      //svg[0]._attr.transform = 'translate(0, ' + Math.ceil(maxCoordinate.y) + ') scale(1, -1)'
+      svg[0]._attr.transform = 'translate(0, ' + options.height + ') scale(1, -1)'
+      svg[0]._attr.viewBox = '0 0 ' + Math.ceil(maxCoordinate.x) + ' ' + Math.ceil(maxCoordinate.y);;
+
+      // Create SVG XML
+      const xml = XML([
+        {
+          svg: svg
+        }
+      ], { declaration: true, indent: '\t' });
+
+      resolve(xml)
+    });
+  })
 }
