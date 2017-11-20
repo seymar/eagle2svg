@@ -82,10 +82,10 @@ function parsePackage(x, y, r, package) {
         ]
       });
     })
-    maxCoordinate.x = Math.max(maxCoordinate.x, scale(wire.$.x1))
-    maxCoordinate.y = Math.max(maxCoordinate.y, scale(wire.$.y1))
-    maxCoordinate.x = Math.max(maxCoordinate.x, scale(wire.$.x2))
-    maxCoordinate.y = Math.max(maxCoordinate.y, scale(wire.$.y2))
+    //maxCoordinate.x = Math.max(maxCoordinate.x, scale(wire.$.x1))
+    //maxCoordinate.y = Math.max(maxCoordinate.y, scale(wire.$.y1))
+    //maxCoordinate.x = Math.max(maxCoordinate.x, scale(wire.$.x2))
+    //maxCoordinate.y = Math.max(maxCoordinate.y, scale(wire.$.y2))
   }
 
   if(typeof package.pad != 'undefined') {
